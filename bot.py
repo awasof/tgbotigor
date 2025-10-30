@@ -31,19 +31,18 @@ if not BOT_TOKEN:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     await update.message.reply_text(
-        "Hello! Send me any message and I'll reply with a random number (1-10 digits)."
+        "Hello! Send me any message and I'll reply with a random 10-digit number."
     )
 
 
 async def generate_random_digits() -> str:
-    """Generate a random number as a string with length between 1 and 10 digits."""
-    length = random.randint(1, 10)
-    digits = ''.join(random.choices('0123456789', k=length))
+    """Generate a random number as a string with exactly 10 digits."""
+    digits = ''.join(random.choices('0123456789', k=10))
     return digits
 
 
 async def echo_random(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Reply with a random number string (1-10 digits) for any text message."""
+    """Reply with a random 10-digit number string for any text message."""
     random_number = await generate_random_digits()
     await update.message.reply_text(random_number)
 
