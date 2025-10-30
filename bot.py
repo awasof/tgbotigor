@@ -6,7 +6,7 @@ A simple bot that responds to all messages with the server's local time.
 
 import os
 import logging
-from datetime import datetime
+import random
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -31,20 +31,21 @@ if not BOT_TOKEN:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     await update.message.reply_text(
-        "Hello! I'm a time bot. Send me any message and I'll respond with the current server time."
+        "Hello! Send me any message and I'll reply with a random number (1-10 digits)."
     )
 
 
-async def get_current_time() -> str:
-    """Get formatted current server time."""
-    now = datetime.now()
-    return now.strftime("%I:%M %p, %B %d, %Y")
+async def generate_random_digits() -> str:
+    """Generate a random number as a string with length between 1 and 10 digits."""
+    length = random.randint(1, 10)
+    digits = ''.join(random.choices('0123456789', k=length))
+    return digits
 
 
-async def echo_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Echo the current server time for any text message."""
-    current_time = await get_current_time()
-    await update.message.reply_text(f"Current server time: {current_time}")
+async def echo_random(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Reply with a random number string (1-10 digits) for any text message."""
+    random_number = await generate_random_digits()
+    await update.message.reply_text(random_number)
 
 
 def main() -> None:
@@ -54,7 +55,7 @@ def main() -> None:
 
     # Register handlers
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo_time))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo_random))
 
     # Start the bot
     logger.info("Starting bot...")
