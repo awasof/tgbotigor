@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Telegram Bot
-A bot with OpenAI chat, weather checking, and random number generation.
+A bot with Groq AI chat, weather checking, and random number generation.
 """
 
 import os
@@ -12,7 +12,7 @@ import sys
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from openai import AsyncOpenAI
+from groq import AsyncGroq
 
 # Load environment variables
 load_dotenv()
@@ -30,31 +30,31 @@ logger.info("Bot starting up...")
 
 # Get tokens from environment variables
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 
 logger.info(f"BOT_TOKEN present: {bool(BOT_TOKEN)}")
-logger.info(f"OPENAI_API_KEY present: {bool(OPENAI_API_KEY)}")
+logger.info(f"GROQ_API_KEY present: {bool(GROQ_API_KEY)}")
 
 if not BOT_TOKEN:
     logger.error("BOT_TOKEN environment variable is missing!")
     raise ValueError("BOT_TOKEN environment variable is required")
-if not OPENAI_API_KEY:
-    logger.error("OPENAI_API_KEY environment variable is missing!")
-    raise ValueError("OPENAI_API_KEY environment variable is required")
+if not GROQ_API_KEY:
+    logger.error("GROQ_API_KEY environment variable is missing!")
+    raise ValueError("GROQ_API_KEY environment variable is required")
 
-# Initialize OpenAI client
+# Initialize Groq client
 try:
-    openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
-    logger.info("OpenAI client initialized successfully")
+    groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+    logger.info("Groq client initialized successfully")
 except Exception as e:
-    logger.error(f"Failed to initialize OpenAI client: {e}")
+    logger.error(f"Failed to initialize Groq client: {e}")
     raise
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     await update.message.reply_text(
-        "Hello! I'm an AI assistant powered by OpenAI. I can:\n"
+        "Hello! I'm an AI assistant powered by Groq. I can:\n"
         "• Chat with you about anything (just send a message)\n"
         "• /weather → Get current weather in Moscow\n"
         "• /random → Generate a random 10-digit number"
@@ -107,17 +107,17 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("⚠️ An error occurred while fetching weather data.")
 
 
-async def chat_with_openai(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle regular text messages by chatting with OpenAI."""
+async def chat_with_groq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle regular text messages by chatting with Groq AI."""
     user_message = update.message.text
     
     try:
         # Send typing action to show bot is processing
         await update.message.chat.send_action(action="typing")
         
-        # Call OpenAI API
-        response = await openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+        # Call Groq API (uses llama-3.3-70b-versatile model - fast and smart!)
+        response = await groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": "You are a helpful and friendly assistant in a Telegram bot. Keep responses concise and engaging."},
                 {"role": "user", "content": user_message}
@@ -131,7 +131,7 @@ async def chat_with_openai(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await update.message.reply_text(ai_response)
         
     except Exception as e:
-        logger.error(f"Error calling OpenAI API: {e}")
+        logger.error(f"Error calling Groq API: {e}")
         await update.message.reply_text(
             "⚠️ Sorry, I'm having trouble processing your message right now. Please try again later."
         )
@@ -150,7 +150,7 @@ def main() -> None:
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CommandHandler("weather", weather))
         application.add_handler(CommandHandler("random", random_number))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_with_openai))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_with_groq))
         logger.info("Handlers registered successfully")
 
         # Start the bot
