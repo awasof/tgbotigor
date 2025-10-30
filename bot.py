@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Telegram Bot
-A bot that responds with random numbers and can check Moscow weather.
+A bot with OpenAI chat, weather checking, and random number generation.
 """
 
 import os
@@ -11,6 +11,7 @@ import httpx
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from openai import AsyncOpenAI
 
 # Load environment variables
 load_dotenv()
@@ -22,26 +23,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Get bot token from environment variables
+# Get tokens from environment variables
 BOT_TOKEN = os.getenv('BOT_TOKEN')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable is required")
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY environment variable is required")
+
+# Initialize OpenAI client
+openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     await update.message.reply_text(
-        "Hello! I can do the following:\n"
-        "• Send any message → Get a random 10-digit number\n"
-        "• /weather → Get current weather in Moscow"
+        "Hello! I'm an AI assistant powered by OpenAI. I can:\n"
+        "• Chat with you about anything (just send a message)\n"
+        "• /weather → Get current weather in Moscow\n"
+        "• /random → Generate a random 10-digit number"
     )
 
 
-async def generate_random_digits() -> str:
-    """Generate a random number as a string with exactly 10 digits."""
+async def random_number(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generate and send a random 10-digit number."""
     digits = ''.join(random.choices('0123456789', k=10))
-    return digits
+    await update.message.reply_text(f"🎲 Random number: {digits}")
 
 
 async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -84,10 +92,34 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("⚠️ An error occurred while fetching weather data.")
 
 
-async def echo_random(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Reply with a random 10-digit number string for any text message."""
-    random_number = await generate_random_digits()
-    await update.message.reply_text(random_number)
+async def chat_with_openai(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle regular text messages by chatting with OpenAI."""
+    user_message = update.message.text
+    
+    try:
+        # Send typing action to show bot is processing
+        await update.message.chat.send_action(action="typing")
+        
+        # Call OpenAI API
+        response = await openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful and friendly assistant in a Telegram bot. Keep responses concise and engaging."},
+                {"role": "user", "content": user_message}
+            ],
+            max_tokens=500,
+            temperature=0.7
+        )
+        
+        # Extract and send the response
+        ai_response = response.choices[0].message.content
+        await update.message.reply_text(ai_response)
+        
+    except Exception as e:
+        logger.error(f"Error calling OpenAI API: {e}")
+        await update.message.reply_text(
+            "⚠️ Sorry, I'm having trouble processing your message right now. Please try again later."
+        )
 
 
 def main() -> None:
@@ -98,7 +130,8 @@ def main() -> None:
     # Register handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("weather", weather))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo_random))
+    application.add_handler(CommandHandler("random", random_number))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_with_openai))
 
     # Start the bot
     logger.info("Starting bot...")
