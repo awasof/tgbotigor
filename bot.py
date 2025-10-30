@@ -8,6 +8,7 @@ import os
 import logging
 import random
 import httpx
+import sys
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -16,24 +17,38 @@ from openai import AsyncOpenAI
 # Load environment variables
 load_dotenv()
 
-# Configure logging
+# Configure logging - force output to stdout
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.INFO,
+    stream=sys.stdout,
+    force=True
 )
 logger = logging.getLogger(__name__)
+
+logger.info("Bot starting up...")
 
 # Get tokens from environment variables
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
+logger.info(f"BOT_TOKEN present: {bool(BOT_TOKEN)}")
+logger.info(f"OPENAI_API_KEY present: {bool(OPENAI_API_KEY)}")
+
 if not BOT_TOKEN:
+    logger.error("BOT_TOKEN environment variable is missing!")
     raise ValueError("BOT_TOKEN environment variable is required")
 if not OPENAI_API_KEY:
+    logger.error("OPENAI_API_KEY environment variable is missing!")
     raise ValueError("OPENAI_API_KEY environment variable is required")
 
 # Initialize OpenAI client
-openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+try:
+    openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    logger.info("OpenAI client initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize OpenAI client: {e}")
+    raise
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -124,19 +139,35 @@ async def chat_with_openai(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 def main() -> None:
     """Start the bot."""
-    # Create the Application
-    application = Application.builder().token(BOT_TOKEN).build()
+    try:
+        logger.info("Creating Application...")
+        # Create the Application
+        application = Application.builder().token(BOT_TOKEN).build()
+        logger.info("Application created successfully")
 
-    # Register handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("weather", weather))
-    application.add_handler(CommandHandler("random", random_number))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_with_openai))
+        # Register handlers
+        logger.info("Registering handlers...")
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("weather", weather))
+        application.add_handler(CommandHandler("random", random_number))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_with_openai))
+        logger.info("Handlers registered successfully")
 
-    # Start the bot
-    logger.info("Starting bot...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+        # Start the bot
+        logger.info("Starting bot polling...")
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
+        
+    except Exception as e:
+        logger.error(f"Fatal error in main(): {e}", exc_info=True)
+        raise
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        logger.info("=== Bot Script Starting ===")
+        main()
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
+    except Exception as e:
+        logger.error(f"Bot crashed: {e}", exc_info=True)
+        sys.exit(1)
