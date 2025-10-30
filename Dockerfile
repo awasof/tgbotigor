@@ -10,4 +10,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["python", "-u", "bot.py"]
+# Temporarily use simple bot for debugging
+CMD ["python", "-u", "bot_simple.py"]
